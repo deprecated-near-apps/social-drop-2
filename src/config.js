@@ -1,4 +1,4 @@
-const contractName = 'dev-1612149212153-9537361';
+const contractName = 'dev-1612196920744-4249339';
 
 module.exports = function getConfig(isServer = false) {
 	let config = {
@@ -15,7 +15,7 @@ module.exports = function getConfig(isServer = false) {
 			GAS: '200000000000000',
 			DEFAULT_NEW_ACCOUNT_AMOUNT: '5',
 			contractMethods: {
-				changeMethods: ['new', 'drop', 'transfer'],
+				changeMethods: ['new', 'drop', 'transfer_drop', 'transfer'],
 				viewMethods: ['get_balance_dropped', 'get_balance_tokens'],
 			},
 		};

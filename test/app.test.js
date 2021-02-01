@@ -56,7 +56,7 @@ describe('deploy contract ' + contractName, () => {
 	test('transfer dropped tokens', async () => {
         const contract = await getContract(bob);
         const account_id = alice.accountId
-        await contract.transfer({ account_id }, GAS);
+        await contract.transfer_drop({ account_id }, GAS);
         const balance = await contract.get_balance_tokens({ account_id });
 		expect(parseInt(balance, 10)).toEqual(DROP_AMOUNT);
 	});

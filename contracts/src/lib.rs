@@ -6,6 +6,7 @@ use near_sdk::{
 };
 use serde::Serialize;
 
+const ZERO: U128 = U128(0);
 const DROP_AMOUNT: U128 = U128(100);
 
 #[global_allocator]
@@ -42,26 +43,38 @@ impl SocialDrop {
     pub fn drop(&mut self) {
         let public_key: PublicKey = env::signer_account_pk();
         assert_eq!(env::signer_account_id(), env::predecessor_account_id(), "Key not from app contract");
-        let balance:U128 = self.dropped.get(&public_key.clone()).unwrap_or(U128(0));
-        assert_eq!(balance, U128(0), "Tokens already dropped");
+        let balance:Option<U128> = self.dropped.get(&public_key.clone());
+        assert!(balance.is_none(), "Tokens already dropped");
         self.dropped.insert(&public_key, &DROP_AMOUNT);
     }
 
-    pub fn transfer(&mut self, account_id: AccountId) {
+    pub fn transfer_drop(&mut self, account_id: AccountId) {
         let public_key: PublicKey = env::signer_account_pk();
         assert_eq!(env::signer_account_id(), env::predecessor_account_id(), "Key not from app contract");
         let balance:U128 = self.dropped.get(&public_key.clone()).unwrap_or(U128(0));
-        assert_ne!(balance, U128(0), "No tokens");
-        self.dropped.remove(&public_key);
+        assert_ne!(balance, ZERO, "No tokens");
+        self.dropped.insert(&public_key, &ZERO);
         self.tokens.insert(&account_id.into(), &balance);
     }
 
+    pub fn transfer(&mut self, account_id: AccountId, amount: U128) {
+        let sender: AccountId = env::signer_account_id();
+        let balance:U128 = self.tokens.get(&sender.clone()).unwrap_or(U128(0));
+        assert_ne!(balance, ZERO, "No tokens");
+        let balance_u128: u128 = balance.into();
+        let amount_u128: u128 = amount.into();
+        assert!(amount_u128 <= balance_u128, "Not enough tokens");
+        let result: U128 = (balance_u128 - amount_u128).into();
+        self.tokens.insert(&sender, &result);
+        self.tokens.insert(&account_id.into(), &amount);
+    }
+
     pub fn get_balance_dropped(&self, public_key: Base58PublicKey) -> U128 {
-        self.dropped.get(&public_key.into()).unwrap_or(U128(0))
+        self.dropped.get(&public_key.into()).unwrap_or(ZERO)
     }
 
     pub fn get_balance_tokens(&self, account_id: AccountId) -> U128 {
-        self.tokens.get(&account_id.into()).unwrap_or(U128(0))
+        self.tokens.get(&account_id.into()).unwrap_or(ZERO)
     }
 }
 
@@ -105,19 +118,34 @@ mod tests {
         testing_env!(context.clone());
         let mut contract = SocialDrop::new(context.current_account_id.clone());
         contract.drop();
-        let balance: U128 = contract.get_balance_dropped(context.signer_account_pk);
+        let balance: U128 = contract.get_balance_dropped(Base58PublicKey::try_from("ed25519:Eg2jtsiMrprn7zgKKUk79qM1hWhANsFyE6JSX4txLEuy").unwrap());
         assert_eq!(balance, DROP_AMOUNT);
     }
 
     #[test]
-    fn transfer() {
+    fn transfer_drop() {
         let mut context = get_context();
         context.signer_account_pk = Base58PublicKey::try_from("ed25519:Eg2jtsiMrprn7zgKKUk79qM1hWhANsFyE6JSX4txLEuy").unwrap().into();
         testing_env!(context.clone());
         let mut contract = SocialDrop::new(context.current_account_id.clone());
         contract.drop();
-        contract.transfer("bob.testnet".to_string());
+        contract.transfer_drop("bob.testnet".to_string());
         let balance: U128 = contract.get_balance_tokens("bob.testnet".to_string());
+        assert_eq!(balance, DROP_AMOUNT);
+    }
+
+    #[test]
+    fn transfer_tokens() {
+        let mut context = get_context();
+        context.signer_account_pk = Base58PublicKey::try_from("ed25519:Eg2jtsiMrprn7zgKKUk79qM1hWhANsFyE6JSX4txLEuy").unwrap().into();
+        testing_env!(context.clone());
+        let mut contract = SocialDrop::new(context.current_account_id.clone());
+        contract.drop();
+        contract.transfer_drop("bob.testnet".to_string());
+        context.signer_account_id = "bob.testnet".to_string();
+        testing_env!(context.clone());
+        contract.transfer("carol.testnet".to_string(), DROP_AMOUNT);
+        let balance: U128 = contract.get_balance_tokens("carol.testnet".to_string());
         assert_eq!(balance, DROP_AMOUNT);
     }
     
@@ -145,6 +173,20 @@ mod tests {
         context.signer_account_pk = Base58PublicKey::try_from("ed25519:Eg2jtsiMrprn7zgKKUk79qM1hWhANsFyE6JSX4txLEuy").unwrap().into();
         testing_env!(context.clone());
         let mut contract = SocialDrop::new(context.current_account_id.clone());
-        contract.transfer("bob.testnet".to_string());
+        contract.transfer_drop("bob.testnet".to_string());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = r#"No tokens"#
+    )]
+    fn panic_transfer_double() {
+        let mut context = get_context();
+        context.signer_account_pk = Base58PublicKey::try_from("ed25519:Eg2jtsiMrprn7zgKKUk79qM1hWhANsFyE6JSX4txLEuy").unwrap().into();
+        testing_env!(context.clone());
+        let mut contract = SocialDrop::new(context.current_account_id.clone());
+        contract.drop();
+        contract.transfer_drop("bob.testnet".to_string());
+        contract.transfer_drop("bob.testnet".to_string());
     }
 }

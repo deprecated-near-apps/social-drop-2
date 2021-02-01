@@ -3,6 +3,7 @@ const cors = require('cors');
 const nearAPI = require('near-api-js');
 const getConfig = require('../src/config');
 const { contractAccount, withNear, hasAccessKey } = require('./middleware/near');
+const { keyExists } = require('./middleware/keys');
 const { contractName } = getConfig();
 const {
 	
@@ -24,7 +25,7 @@ app.post('/has-access-key', hasAccessKey, (req, res) => {
 });
 
 // WARNING NO RESTRICTION ON THIS ENDPOINT
-app.post('/add-key', async (req, res) => {
+app.post('/add-key', keyExists, async (req, res) => {
 	const { publicKey } = req.body;
 	try {
 		const result = await contractAccount.addAccessKey(publicKey);
