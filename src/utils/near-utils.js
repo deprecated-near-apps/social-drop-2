@@ -54,9 +54,9 @@ export const postJson = async ({ url, data = {} }) => {
 		headers: new Headers({ 'content-type': 'application/json' }),
 		body: JSON.stringify({ ...data })
 	}).then((res) => {
-        console.log(res)
-        return res.json()
-    });
+		console.log(res);
+		return res.json();
+	});
 };
 
 export const createAccessKeyAccount = (near, key) => {
